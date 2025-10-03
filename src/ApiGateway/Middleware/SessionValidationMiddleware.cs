@@ -16,7 +16,8 @@ public class SessionValidationMiddleware
         "/oauth/callback",
         "/oauth/login/end",
         "/oauth/isloggedin",
-        "/health"
+        "/health",
+        "/admin"
     };
 
     public SessionValidationMiddleware(

@@ -13,6 +13,8 @@ public class ApiGatewayDbContext : DbContext
     public DbSet<RouteConfig> RouteConfigs { get; set; }
     public DbSet<ClusterConfig> ClusterConfigs { get; set; }
     public DbSet<SessionToken> SessionTokens { get; set; }
+    public DbSet<User> Users { get; set; }
+    public DbSet<ClientCredential> ClientCredentials { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -35,14 +37,36 @@ public class ApiGatewayDbContext : DbContext
             entity.Property(e => e.DestinationAddress).IsRequired();
         });
 
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.Username).IsUnique();
+            entity.Property(e => e.Username).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.Email).IsRequired().HasMaxLength(200);
+        });
+
         modelBuilder.Entity<SessionToken>(entity =>
         {
             entity.HasKey(e => e.Id);
             entity.HasIndex(e => e.TokenId).IsUnique();
             entity.Property(e => e.TokenId).IsRequired().HasMaxLength(100);
-            entity.Property(e => e.UserId).IsRequired().HasMaxLength(200);
             entity.Property(e => e.AccessToken).IsRequired();
             entity.Property(e => e.RefreshToken).IsRequired();
+            
+            // Configure relationship
+            entity.HasOne(e => e.User)
+                .WithMany(u => u.Sessions)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ClientCredential>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.ClientId).IsUnique();
+            entity.Property(e => e.ClientId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.ClientSecretHash).IsRequired();
+            entity.Property(e => e.Description).HasMaxLength(500);
         });
 
         // Seed some default routes

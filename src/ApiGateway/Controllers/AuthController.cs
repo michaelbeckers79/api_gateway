@@ -11,8 +11,11 @@ public class AuthController : ControllerBase
 {
     private readonly IOAuthAgentService _oauthAgent;
     private readonly ISessionTokenService _sessionTokenService;
+    private readonly IJwtService _jwtService;
+    private readonly IUserService _userService;
     private readonly IDataProtector _protector;
     private readonly ILogger<AuthController> _logger;
+    private readonly IConfiguration _configuration;
 
     // OWASP best practices for cookie configuration
     private const string SessionCookieName = "__Host-Session";
@@ -22,12 +25,18 @@ public class AuthController : ControllerBase
     public AuthController(
         IOAuthAgentService oauthAgent,
         ISessionTokenService sessionTokenService,
+        IJwtService jwtService,
+        IUserService userService,
         IDataProtectionProvider dataProtectionProvider,
+        IConfiguration configuration,
         ILogger<AuthController> logger)
     {
         _oauthAgent = oauthAgent;
         _sessionTokenService = sessionTokenService;
+        _jwtService = jwtService;
+        _userService = userService;
         _protector = dataProtectionProvider.CreateProtector("AuthCookies");
+        _configuration = configuration;
         _logger = logger;
     }
 
@@ -137,7 +146,7 @@ public class AuthController : ControllerBase
             var userAgent = Request.Headers.UserAgent.ToString();
             
             // Extract user ID from ID token or access token (simplified - in production, decode JWT)
-            var userId = ExtractUserIdFromToken(tokenResult.IdToken);
+            var userId = await ExtractUserIdFromTokenAsync(tokenResult.IdToken ?? tokenResult.AccessToken);
 
             var sessionTokenId = await _sessionTokenService.CreateSessionAsync(
                 userId, 
@@ -211,7 +220,8 @@ public class AuthController : ControllerBase
             return Ok(new IsLoggedInResponse
             {
                 IsLoggedIn = true,
-                UserId = session?.UserId
+                UserId = session?.UserId.ToString(),
+                Username = session?.User?.Username
             });
         }
         catch (Exception ex)
@@ -252,35 +262,59 @@ public class AuthController : ControllerBase
         }
     }
 
-    private string ExtractUserIdFromToken(string token)
+    private async Task<string> ExtractUserIdFromTokenAsync(string token)
     {
-        // Simplified extraction - in production, decode and validate JWT
-        // This is just a placeholder
         try
         {
             if (string.IsNullOrEmpty(token))
                 return Guid.NewGuid().ToString();
 
-            var parts = token.Split('.');
-            if (parts.Length != 3)
-                return Guid.NewGuid().ToString();
-
-            var payload = parts[1];
-            var paddedPayload = payload.PadRight(payload.Length + (4 - payload.Length % 4) % 4, '=');
-            var json = System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(paddedPayload));
+            // Get the configured claim name for username
+            var usernameClaim = _configuration["Jwt:UsernameClaim"] ?? "preferred_username";
             
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("sub", out var sub))
+            // Extract username from JWT
+            var username = _jwtService.ExtractUsername(token, usernameClaim);
+            
+            if (string.IsNullOrEmpty(username))
             {
-                return sub.GetString() ?? Guid.NewGuid().ToString();
+                _logger.LogWarning("Could not extract username from token, using fallback");
+                return Guid.NewGuid().ToString();
             }
-        }
-        catch
-        {
-            // Fall through to default
-        }
 
-        return Guid.NewGuid().ToString();
+            // Extract email from JWT (fallback to username if not found)
+            var principal = _jwtService.ValidateToken(token);
+            var email = principal?.FindFirst("email")?.Value ?? username;
+
+            // Get or create user
+            var user = await _userService.GetOrCreateUserAsync(username, email);
+            
+            if (user == null)
+            {
+                _logger.LogError("Failed to get or create user for username: {Username}", username);
+                return Guid.NewGuid().ToString();
+            }
+
+            // Check if user is enabled
+            if (!user.IsEnabled)
+            {
+                _logger.LogWarning("User is disabled: {Username}", username);
+                throw new UnauthorizedAccessException($"User is disabled: {username}");
+            }
+
+            // Update last login
+            await _userService.UpdateLastLoginAsync(user.Id);
+
+            return username;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            throw; // Re-throw authorization exceptions
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error extracting user from token");
+            return Guid.NewGuid().ToString();
+        }
     }
 }
 
@@ -312,6 +346,7 @@ public record IsLoggedInResponse
 {
     public bool IsLoggedIn { get; set; }
     public string? UserId { get; set; }
+    public string? Username { get; set; }
 }
 
 public record LogoutResponse

@@ -26,6 +26,9 @@ builder.Services.AddHttpClient();
 // Register custom services
 builder.Services.AddScoped<ISessionTokenService, SessionTokenService>();
 builder.Services.AddScoped<IOAuthAgentService, OAuthAgentService>();
+builder.Services.AddScoped<IJwtService, JwtService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IClientCredentialService, ClientCredentialService>();
 builder.Services.AddSingleton<DatabaseProxyConfigProvider>();
 builder.Services.AddSingleton<IProxyConfigProvider>(sp => 
     sp.GetRequiredService<DatabaseProxyConfigProvider>());

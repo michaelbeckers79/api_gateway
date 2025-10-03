@@ -38,13 +38,29 @@ public class SessionTokenService : ISessionTokenService
     public async Task<string> CreateSessionAsync(string userId, string accessToken, 
         string refreshToken, string ipAddress, string userAgent)
     {
+        // userId is actually the username from JWT, need to look up or create user
+        var username = userId;
+        var user = await _dbContext.Users.FirstOrDefaultAsync(u => u.Username == username);
+        
+        if (user == null)
+        {
+            _logger.LogError("User not found for username: {Username}", username);
+            throw new InvalidOperationException($"User not found: {username}");
+        }
+
+        if (!user.IsEnabled)
+        {
+            _logger.LogWarning("Attempted to create session for disabled user: {Username}", username);
+            throw new UnauthorizedAccessException($"User is disabled: {username}");
+        }
+
         // Generate cryptographically secure random token ID
         var tokenId = GenerateSecureToken();
 
         var session = new SessionToken
         {
             TokenId = tokenId,
-            UserId = userId,
+            UserId = user.Id,
             AccessToken = accessToken,
             RefreshToken = refreshToken,
             ExpiresAt = DateTime.UtcNow.Add(_absoluteTimeout),
@@ -58,8 +74,8 @@ public class SessionTokenService : ISessionTokenService
         _dbContext.SessionTokens.Add(session);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation("Created session token for user {UserId} from IP {IpAddress}", 
-            userId, ipAddress);
+        _logger.LogInformation("Created session token for user {Username} (ID: {UserId}) from IP {IpAddress}", 
+            username, user.Id, ipAddress);
 
         return tokenId;
     }
@@ -67,11 +83,21 @@ public class SessionTokenService : ISessionTokenService
     public async Task<SessionToken?> GetSessionAsync(string tokenId)
     {
         var session = await _dbContext.SessionTokens
+            .Include(s => s.User)
             .FirstOrDefaultAsync(s => s.TokenId == tokenId && !s.IsRevoked);
 
         if (session == null)
         {
             _logger.LogWarning("Session token {TokenId} not found", tokenId);
+            return null;
+        }
+
+        // Check if user is enabled
+        if (!session.User.IsEnabled)
+        {
+            _logger.LogWarning("Session token {TokenId} belongs to disabled user {Username}", 
+                tokenId, session.User.Username);
+            await RevokeSessionAsync(tokenId);
             return null;
         }
 

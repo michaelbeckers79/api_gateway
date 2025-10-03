@@ -6,11 +6,29 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace ApiGateway.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate : Migration
+    public partial class InitialCreateWithUsers : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.CreateTable(
+                name: "ClientCredentials",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    ClientId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    ClientSecretHash = table.Column<string>(type: "TEXT", nullable: false),
+                    Description = table.Column<string>(type: "TEXT", maxLength: 500, nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastUsedAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_ClientCredentials", x => x.Id);
+                });
+
             migrationBuilder.CreateTable(
                 name: "ClusterConfigs",
                 columns: table => new
@@ -48,13 +66,31 @@ namespace ApiGateway.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Users",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Username = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Email = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    IsEnabled = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    LastLoginAt = table.Column<DateTime>(type: "TEXT", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Users", x => x.Id);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "SessionTokens",
                 columns: table => new
                 {
                     Id = table.Column<int>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     TokenId = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
-                    UserId = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    UserId = table.Column<int>(type: "INTEGER", nullable: false),
                     AccessToken = table.Column<string>(type: "TEXT", nullable: false),
                     RefreshToken = table.Column<string>(type: "TEXT", nullable: false),
                     ExpiresAt = table.Column<DateTime>(type: "TEXT", nullable: false),
@@ -67,6 +103,12 @@ namespace ApiGateway.Migrations
                 constraints: table =>
                 {
                     table.PrimaryKey("PK_SessionTokens", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_SessionTokens_Users_UserId",
+                        column: x => x.UserId,
+                        principalTable: "Users",
+                        principalColumn: "Id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.InsertData(
@@ -78,6 +120,12 @@ namespace ApiGateway.Migrations
                 table: "RouteConfigs",
                 columns: new[] { "Id", "ClusterId", "CreatedAt", "IsActive", "Match", "Order", "RouteId", "UpdatedAt" },
                 values: new object[] { 1, "backend-api", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc), true, "/api/{**catch-all}", 1, "api-route", new DateTime(2024, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc) });
+
+            migrationBuilder.CreateIndex(
+                name: "IX_ClientCredentials_ClientId",
+                table: "ClientCredentials",
+                column: "ClientId",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_ClusterConfigs_ClusterId",
@@ -96,11 +144,25 @@ namespace ApiGateway.Migrations
                 table: "SessionTokens",
                 column: "TokenId",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SessionTokens_UserId",
+                table: "SessionTokens",
+                column: "UserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Username",
+                table: "Users",
+                column: "Username",
+                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "ClientCredentials");
+
             migrationBuilder.DropTable(
                 name: "ClusterConfigs");
 
@@ -109,6 +171,9 @@ namespace ApiGateway.Migrations
 
             migrationBuilder.DropTable(
                 name: "SessionTokens");
+
+            migrationBuilder.DropTable(
+                name: "Users");
         }
     }
 }
