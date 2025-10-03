@@ -1,0 +1,23 @@
+@ApiGateway_HostAddress = http://localhost:5261
+
+### Health Check
+GET {{ApiGateway_HostAddress}}/health
+Accept: application/json
+
+### Check if logged in (should return false initially)
+GET {{ApiGateway_HostAddress}}/oauth/isloggedin
+Accept: application/json
+
+### Start login flow
+POST {{ApiGateway_HostAddress}}/oauth/login/start
+Content-Type: application/json
+
+{
+  "redirectUri": "http://localhost:5261/oauth/callback"
+}
+
+### Logout
+POST {{ApiGateway_HostAddress}}/oauth/logout
+Accept: application/json
+
+###
