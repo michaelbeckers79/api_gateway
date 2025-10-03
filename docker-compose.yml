@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  apigateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: apigateway
+    ports:
+      - "5000:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/apigateway.db
+      - OAuth__AuthorizationEndpoint=https://auth.example.com/authorize
+      - OAuth__TokenEndpoint=https://auth.example.com/token
+      - OAuth__ClientId=your-client-id
+      - OAuth__ClientSecret=your-client-secret
+      - OAuth__RedirectUri=http://localhost:5000/oauth/callback
+      - OAuth__Scope=openid profile email
+    volumes:
+      - ./data:/app/data
+      - ./keys:/app/keys
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Optional: Add a PostgreSQL database for production use
+  # postgres:
+  #   image: postgres:16-alpine
+  #   container_name: apigateway-db
+  #   environment:
+  #     - POSTGRES_DB=apigateway
+  #     - POSTGRES_USER=apigateway
+  #     - POSTGRES_PASSWORD=your-secure-password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U apigateway"]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 5
+
+# volumes:
+#   postgres_data:
