@@ -22,17 +22,28 @@ public class SessionTokenService : ISessionTokenService
     private readonly ApiGatewayDbContext _dbContext;
     private readonly IDataProtector _protector;
     private readonly ILogger<SessionTokenService> _logger;
-    private readonly TimeSpan _sessionTimeout = TimeSpan.FromMinutes(30);
-    private readonly TimeSpan _absoluteTimeout = TimeSpan.FromHours(8);
+    private readonly TimeSpan _sessionTimeout;
+    private readonly TimeSpan _absoluteTimeout;
 
     public SessionTokenService(
         ApiGatewayDbContext dbContext,
         IDataProtectionProvider dataProtectionProvider,
+        IConfiguration configuration,
         ILogger<SessionTokenService> logger)
     {
         _dbContext = dbContext;
         _protector = dataProtectionProvider.CreateProtector("SessionTokens");
         _logger = logger;
+        
+        // Load timeout configuration from appsettings
+        var idleTimeoutMinutes = configuration.GetValue<int?>("Session:IdleTimeoutMinutes") ?? 30;
+        var absoluteTimeoutHours = configuration.GetValue<int?>("Session:AbsoluteTimeoutHours") ?? 8;
+        
+        _sessionTimeout = TimeSpan.FromMinutes(idleTimeoutMinutes);
+        _absoluteTimeout = TimeSpan.FromHours(absoluteTimeoutHours);
+        
+        _logger.LogInformation("Session timeouts configured: Idle={IdleTimeout}, Absolute={AbsoluteTimeout}", 
+            _sessionTimeout, _absoluteTimeout);
     }
 
     public async Task<string> CreateSessionAsync(string userId, string accessToken, 
