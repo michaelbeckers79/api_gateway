@@ -8,8 +8,11 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 - **YARP Reverse Proxy**: Database-configurable routing for backend services
 - **OAuth Agent Pattern**: Handles OAuth 2.0 authorization flows with PKCE
 - **Token Handler Pattern**: Secure opaque session tokens with encrypted cookies
-- **Entity Framework Core**: SQLite database for route and session management
+- **Entity Framework Core**: SQLite database with snake_case columns for route and session management
 - **OWASP Security Best Practices**: Comprehensive security headers and cookie configuration
+- **Upstream Token Management**: Automatic token acquisition and renewal for backend services
+- **Distributed Cache**: Session and token caching with memory or Redis support
+- **Backend-Initiated Auth**: Support for backend services to initiate OAuth flows
 
 ### Security Features
 
@@ -22,8 +25,7 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 
 #### Session Management
 - **Opaque Tokens**: Session tokens don't expose user information
-- **Absolute Timeout**: 8-hour maximum session lifetime
-- **Idle Timeout**: 30-minute inactivity timeout
+- **Configurable Timeouts**: Idle timeout (default 30 min) and absolute timeout (default 8 hours) configurable in appsettings.json
 - **Session Binding**: Tracks IP address and User-Agent
 - **Automatic Cleanup**: Background service removes expired sessions
 
@@ -31,6 +33,12 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 - **PKCE (Proof Key for Code Exchange)**: Protection against authorization code interception
 - **State Parameter**: CSRF protection for OAuth flow
 - **Secure Token Storage**: Access tokens stored server-side, not in browser
+
+#### Upstream Token Management
+- **Multiple Auth Modes**: Client Credentials, Token Exchange, Self-Signed JWT
+- **Automatic Token Renewal**: Tokens refreshed automatically before expiration
+- **Route Security Policies**: Define authentication strategy per route
+- **Distributed Cache**: Fast token lookup with configurable backend
 
 ## Architecture
 
@@ -140,6 +148,25 @@ Logout and revoke the current session.
 }
 ```
 
+#### POST `/oauth/backend/initiate` (New)
+Initiate OAuth flow from backend service.
+
+**Request:**
+```json
+{
+  "clientId": "api-gateway",
+  "redirectUri": "https://your-gateway.com/oauth/callback"
+}
+```
+
+**Response:**
+```json
+{
+  "authorizationUrl": "https://auth.example.com/authorize?...",
+  "state": "random-state-value"
+}
+```
+
 ### Health Check Endpoint
 
 #### GET `/health`
@@ -154,6 +181,10 @@ Returns the health status of the API Gateway.
   "ConnectionStrings": {
     "DefaultConnection": "Data Source=apigateway.db"
   },
+  "Session": {
+    "IdleTimeoutMinutes": 30,
+    "AbsoluteTimeoutHours": 8
+  },
   "OAuth": {
     "AuthorizationEndpoint": "https://auth.example.com/authorize",
     "TokenEndpoint": "https://auth.example.com/token",
@@ -161,6 +192,12 @@ Returns the health status of the API Gateway.
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://localhost:5000/oauth/callback",
     "Scope": "openid profile email"
+  },
+  "Jwt": {
+    "UsernameClaim": "preferred_username",
+    "Secret": "your-secret-key-min-32-chars",
+    "Issuer": "api-gateway",
+    "Audience": "api-gateway"
   },
   "Cors": {
     "AllowedOrigins": [
@@ -173,28 +210,46 @@ Returns the health status of the API Gateway.
 
 ### Database Configuration
 
-The gateway uses SQLite by default. Routes and clusters are stored in the database and can be modified at runtime.
+The gateway uses SQLite by default with **snake_case column naming**. Routes and clusters are stored in the database and can be modified at runtime.
 
 **RouteConfig Table:**
-- RouteId: Unique identifier for the route
-- ClusterId: Reference to the cluster
-- Match: Path pattern (e.g., `/api/{**catch-all}`)
-- Order: Route priority
-- IsActive: Enable/disable route
+- route_id: Unique identifier for the route
+- cluster_id: Reference to the cluster
+- match: Path pattern (e.g., `/api/{**catch-all}`)
+- order: Route priority
+- is_active: Enable/disable route
+- security_policy: Security type reference (optional)
 
 **ClusterConfig Table:**
-- ClusterId: Unique identifier for the cluster
-- DestinationAddress: Backend service URL
-- IsActive: Enable/disable cluster
+- cluster_id: Unique identifier for the cluster
+- destination_address: Backend service URL
+- is_active: Enable/disable cluster
 
 **SessionToken Table:**
-- TokenId: Opaque session token
-- UserId: User identifier
-- AccessToken: OAuth access token (stored server-side)
-- RefreshToken: OAuth refresh token (stored server-side)
-- ExpiresAt: Absolute expiration time
-- LastAccessedAt: Last activity time (for idle timeout)
-- IsRevoked: Revocation flag
+- token_id: Opaque session token
+- user_id: User identifier
+- access_token: OAuth access token (stored server-side)
+- refresh_token: OAuth refresh token (stored server-side)
+- expires_at: Absolute expiration time
+- last_accessed_at: Last activity time (for idle timeout)
+- is_revoked: Revocation flag
+
+**RoutePolicies Table (New):**
+- route_id: Reference to route
+- security_type: Authentication method (none, session, client_credentials, token_exchange, self_signed)
+- token_endpoint: OAuth token endpoint (for client_credentials and token_exchange)
+- client_id: Client ID for OAuth flows
+- client_secret: Client secret for OAuth flows
+- scope: OAuth scopes
+- token_expiration_seconds: Token lifetime
+
+**UpstreamTokens Table (New):**
+- route_id: Reference to route
+- session_id: Reference to session (nullable for client_credentials)
+- access_token: Token for upstream service
+- refresh_token: Refresh token (optional)
+- expires_at: Token expiration time
+- last_refreshed_at: Last refresh timestamp
 
 ## Getting Started
 
@@ -370,9 +425,18 @@ Contributions are welcome! Please follow these guidelines:
 
 This project is licensed under the MIT License.
 
+## Documentation
+
+- **[CONFIGURATION.md](CONFIGURATION.md)** - Complete configuration guide including OAuth provider setup and backend-initiated authentication with Keycloak
+- **[UPSTREAM_TOKENS.md](UPSTREAM_TOKENS.md)** - Detailed documentation on upstream token management, security policies, and usage examples
+- **[IMPLEMENTATION_SUMMARY.md](IMPLEMENTATION_SUMMARY.md)** - Architecture overview and implementation details
+- **[SECURITY.md](SECURITY.md)** - Security features and OWASP best practices
+- **[ADMIN_API.md](ADMIN_API.md)** - Admin API endpoints for managing routes, clusters, and users
+
 ## References
 
 - [YARP Documentation](https://microsoft.github.io/reverse-proxy/)
 - [OWASP Cheat Sheet Series](https://cheatsheetseries.owasp.org/)
 - [OAuth 2.0 Security Best Current Practice](https://datatracker.ietf.org/doc/html/draft-ietf-oauth-security-topics)
 - [Token Handler Pattern](https://curity.io/resources/learn/token-handler-overview/)
+- [RFC 8693 - OAuth 2.0 Token Exchange](https://datatracker.ietf.org/doc/html/rfc8693)
