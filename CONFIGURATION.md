@@ -133,11 +133,11 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 }
 ```
 
-## Backend-Initiated Authentication
+## OpenID Connect Authentication
 
-The API Gateway supports backend-initiated authentication, allowing backend services to trigger the OAuth flow on behalf of a user. This is useful for scenarios where the backend needs to authenticate a user without frontend involvement.
+The API Gateway uses OpenID Connect (OIDC) for authentication, which extends OAuth 2.0 with identity features. The implementation uses PKCE (Proof Key for Code Exchange) for enhanced security.
 
-### Keycloak Configuration for Backend-Initiated Auth
+### Keycloak Configuration for OpenID Connect
 
 #### 1. Create a Confidential Client in Keycloak
 
@@ -193,29 +193,7 @@ Update `appsettings.json`:
 }
 ```
 
-#### 4. Using Backend-Initiated Authentication
-
-**Endpoint**: `POST /oauth/backend/initiate`
-
-**Request**:
-```json
-{
-  "clientId": "api-gateway",
-  "redirectUri": "https://your-gateway.com/oauth/callback"
-}
-```
-
-**Response**:
-```json
-{
-  "authorizationUrl": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth?...",
-  "state": "random-state-value"
-}
-```
-
-The backend service can then redirect the user's browser to the `authorizationUrl` to complete authentication.
-
-#### 5. Configuring Route Security Policies
+#### 4. Configuring Route Security Policies
 
 Routes can be configured with different security policies for upstream services:
 

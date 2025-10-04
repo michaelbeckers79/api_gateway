@@ -15,6 +15,7 @@ public class AuthorizationRequest
     public string State { get; set; } = string.Empty;
     public string CodeVerifier { get; set; } = string.Empty;
     public string CodeChallenge { get; set; } = string.Empty;
+    public string Nonce { get; set; } = string.Empty; // OpenID Connect nonce
 }
 
 public class TokenExchangeResult
@@ -49,6 +50,7 @@ public class OAuthAgentService : IOAuthAgentService
         var codeVerifier = GenerateCodeVerifier();
         var codeChallenge = GenerateCodeChallenge(codeVerifier);
         var state = GenerateState();
+        var nonce = GenerateNonce(); // Add nonce for OpenID Connect
 
         var authEndpoint = _configuration["OAuth:AuthorizationEndpoint"] 
             ?? "https://auth.example.com/authorize";
@@ -62,6 +64,7 @@ public class OAuthAgentService : IOAuthAgentService
             ["redirect_uri"] = redirectUri,
             ["scope"] = scope,
             ["state"] = state,
+            ["nonce"] = nonce, // OpenID Connect nonce for replay protection
             ["code_challenge"] = codeChallenge,
             ["code_challenge_method"] = "S256"
         };
@@ -71,14 +74,15 @@ public class OAuthAgentService : IOAuthAgentService
 
         var authorizationUrl = $"{authEndpoint}?{queryString}";
 
-        _logger.LogInformation("Generated authorization request with state {State}", state);
+        _logger.LogInformation("Generated OpenID Connect authorization request with state {State} and nonce {Nonce}", state, nonce);
 
         return new AuthorizationRequest
         {
             AuthorizationUrl = authorizationUrl,
             State = state,
             CodeVerifier = codeVerifier,
-            CodeChallenge = codeChallenge
+            CodeChallenge = codeChallenge,
+            Nonce = nonce
         };
     }
 
@@ -179,6 +183,18 @@ public class OAuthAgentService : IOAuthAgentService
 
     private static string GenerateState()
     {
+        var bytes = new byte[16];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(bytes);
+        return Convert.ToBase64String(bytes)
+            .Replace("+", "-")
+            .Replace("/", "_")
+            .Replace("=", "");
+    }
+
+    private static string GenerateNonce()
+    {
+        // Generate a nonce for OpenID Connect replay protection
         var bytes = new byte[16];
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(bytes);

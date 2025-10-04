@@ -21,6 +21,7 @@ public class AuthController : ControllerBase
     private const string SessionCookieName = "__Host-Session";
     private const string StateCookieName = "__Host-State";
     private const string CodeVerifierCookieName = "__Host-CodeVerifier";
+    private const string NonceCookieName = "__Host-Nonce";
 
     public AuthController(
         IOAuthAgentService oauthAgent,
@@ -68,9 +69,11 @@ public class AuthController : ControllerBase
             // Encrypt sensitive data before storing in cookies
             var encryptedState = _protector.Protect(authRequest.State);
             var encryptedCodeVerifier = _protector.Protect(authRequest.CodeVerifier);
+            var encryptedNonce = _protector.Protect(authRequest.Nonce);
 
             Response.Cookies.Append(StateCookieName, encryptedState, cookieOptions);
             Response.Cookies.Append(CodeVerifierCookieName, encryptedCodeVerifier, cookieOptions);
+            Response.Cookies.Append(NonceCookieName, encryptedNonce, cookieOptions);
 
             _logger.LogInformation("Login started for redirect URI: {RedirectUri}", redirectUri);
 
@@ -172,6 +175,7 @@ public class AuthController : ControllerBase
             // Clear temporary cookies
             Response.Cookies.Delete(StateCookieName);
             Response.Cookies.Delete(CodeVerifierCookieName);
+            Response.Cookies.Delete(NonceCookieName);
 
             _logger.LogInformation("Login completed successfully for user {UserId}", userId);
 
@@ -248,6 +252,7 @@ public class AuthController : ControllerBase
             Response.Cookies.Delete(SessionCookieName);
             Response.Cookies.Delete(StateCookieName);
             Response.Cookies.Delete(CodeVerifierCookieName);
+            Response.Cookies.Delete(NonceCookieName);
 
             return Ok(new LogoutResponse
             {
@@ -259,54 +264,6 @@ public class AuthController : ControllerBase
         {
             _logger.LogError(ex, "Error during logout");
             return StatusCode(500, new { error = "internal_error", message = "Failed to logout" });
-        }
-    }
-
-    [HttpPost("backend/initiate")]
-    public IActionResult BackendInitiateAuth([FromBody] BackendAuthRequest request)
-    {
-        try
-        {
-            // Validate request
-            if (string.IsNullOrEmpty(request.ClientId))
-            {
-                return BadRequest(new { error = "invalid_request", message = "ClientId is required" });
-            }
-
-            // Use provided redirect URI or default
-            var redirectUri = request.RedirectUri ?? $"{Request.Scheme}://{Request.Host}/oauth/callback";
-            
-            var authRequest = _oauthAgent.GenerateAuthorizationRequest(redirectUri);
-
-            // Store state and code verifier in secure, encrypted cookies
-            var cookieOptions = new CookieOptions
-            {
-                HttpOnly = true,
-                Secure = true,
-                SameSite = SameSiteMode.Strict,
-                MaxAge = TimeSpan.FromMinutes(10),
-                Path = "/",
-                IsEssential = true
-            };
-
-            var encryptedState = _protector.Protect(authRequest.State);
-            var encryptedCodeVerifier = _protector.Protect(authRequest.CodeVerifier);
-
-            Response.Cookies.Append(StateCookieName, encryptedState, cookieOptions);
-            Response.Cookies.Append(CodeVerifierCookieName, encryptedCodeVerifier, cookieOptions);
-
-            _logger.LogInformation("Backend initiated auth for client {ClientId}", request.ClientId);
-
-            return Ok(new BackendAuthResponse
-            {
-                AuthorizationUrl = authRequest.AuthorizationUrl,
-                State = authRequest.State
-            });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error initiating backend auth");
-            return StatusCode(500, new { error = "internal_error", message = "Failed to initiate authentication" });
         }
     }
 
@@ -401,16 +358,4 @@ public record LogoutResponse
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
-}
-
-public record BackendAuthRequest
-{
-    public string ClientId { get; set; } = string.Empty;
-    public string? RedirectUri { get; set; }
-}
-
-public record BackendAuthResponse
-{
-    public string AuthorizationUrl { get; set; } = string.Empty;
-    public string State { get; set; } = string.Empty;
 }

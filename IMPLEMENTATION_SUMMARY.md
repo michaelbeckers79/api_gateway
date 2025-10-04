@@ -15,9 +15,10 @@ A complete Backend-for-Frontend (BFF) API Gateway implementation using .NET Core
    - Path-based routing with priorities
 
 2. **OAuth Agent Service**
-   - OAuth 2.0 / OpenID Connect support
+   - OpenID Connect (OIDC) support with OAuth 2.0 compatibility
    - PKCE (Proof Key for Code Exchange) implementation
    - State parameter for CSRF protection
+   - Nonce parameter for replay protection (OIDC)
    - Authorization request generation
    - Token exchange functionality
 
