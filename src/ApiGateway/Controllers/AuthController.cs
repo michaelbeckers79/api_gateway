@@ -135,8 +135,20 @@ public class AuthController : ControllerBase
 
             var codeVerifier = _protector.Unprotect(encryptedCodeVerifier);
 
-            // Exchange code for tokens
-            var tokenResult = await _oauthAgent.ExchangeCodeForTokensAsync(code, codeVerifier);
+            // Retrieve nonce from cookie for ID token validation
+            string? nonce = null;
+            if (Request.Cookies.TryGetValue(NonceCookieName, out var encryptedNonce))
+            {
+                nonce = _protector.Unprotect(encryptedNonce);
+                _logger.LogDebug("Retrieved nonce for ID token validation");
+            }
+            else
+            {
+                _logger.LogWarning("Nonce cookie not found - ID token nonce validation will be skipped");
+            }
+
+            // Exchange code for tokens with nonce validation
+            var tokenResult = await _oauthAgent.ExchangeCodeForTokensAsync(code, codeVerifier, nonce);
 
             if (!tokenResult.Success)
             {

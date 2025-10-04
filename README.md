@@ -32,6 +32,9 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 - **PKCE (Proof Key for Code Exchange)**: Protection against authorization code interception
 - **State Parameter**: CSRF protection for OAuth flow
 - **Nonce Parameter**: OpenID Connect replay protection
+- **OIDC Discovery**: Automatic configuration from well-known endpoint
+- **JWKS Validation**: ID token signature verification using provider's public keys
+- **Multi-Layer Token Validation**: Issuer, audience, lifetime, and algorithm verification following OWASP guidelines
 - **Secure Token Storage**: Access tokens stored server-side, not in browser
 
 #### Upstream Token Management
@@ -167,6 +170,7 @@ Returns the health status of the API Gateway.
     "AbsoluteTimeoutHours": 8
   },
   "OAuth": {
+    "Issuer": "https://auth.example.com",
     "AuthorizationEndpoint": "https://auth.example.com/authorize",
     "TokenEndpoint": "https://auth.example.com/token",
     "ClientId": "your-client-id",

@@ -173,6 +173,7 @@ Update `appsettings.json`:
 ```json
 {
   "OAuth": {
+    "Issuer": "https://keycloak.example.com/realms/myrealm",
     "AuthorizationEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth",
     "TokenEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/token",
     "ClientId": "api-gateway",
@@ -193,7 +194,36 @@ Update `appsettings.json`:
 }
 ```
 
-#### 4. Configuring Route Security Policies
+**Important Configuration Notes:**
+
+- **OAuth:Issuer**: The OIDC issuer URL. The gateway uses this to discover the well-known OIDC configuration endpoint at `{Issuer}/.well-known/openid-configuration`. For Keycloak, this is typically `https://keycloak.example.com/realms/{realm-name}`.
+- **Well-Known Discovery**: The gateway automatically fetches JWKS (JSON Web Key Set) and other OIDC metadata from the well-known endpoint for secure token validation.
+- **Token Validation**: ID tokens are validated according to OWASP guidelines, including:
+  - Signature verification using JWKS
+  - Issuer validation
+  - Audience validation
+  - Expiration time validation
+  - Nonce validation (replay protection)
+  - Algorithm verification (RS256 or stronger)
+
+#### 4. Token Validation Security
+
+The API Gateway implements comprehensive OIDC token validation following OWASP security guidelines:
+
+1. **Automatic OIDC Discovery**: Fetches configuration from `{Issuer}/.well-known/openid-configuration`
+2. **JWKS-based Signature Validation**: Validates ID token signatures using public keys from the JWKS endpoint
+3. **Issuer Validation**: Ensures tokens are issued by the configured identity provider
+4. **Audience Validation**: Verifies tokens are intended for this gateway (client ID)
+5. **Lifetime Validation**: Checks token expiration with configurable clock skew (5 minutes)
+6. **Nonce Validation**: Validates nonce claim in ID token to prevent replay attacks
+7. **Algorithm Verification**: Ensures only secure algorithms (RS256, RS384, RS512) are accepted
+
+**Security Features:**
+- Tokens are cached for 24 hours with automatic refresh
+- All validation follows OWASP Authentication Cheat Sheet guidelines
+- Invalid tokens are rejected with detailed logging for security monitoring
+
+#### 5. Configuring Route Security Policies
 
 Routes can be configured with different security policies for upstream services:
 

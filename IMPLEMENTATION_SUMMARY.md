@@ -19,10 +19,20 @@ A complete Backend-for-Frontend (BFF) API Gateway implementation using .NET Core
    - PKCE (Proof Key for Code Exchange) implementation
    - State parameter for CSRF protection
    - Nonce parameter for replay protection (OIDC)
+   - OIDC Discovery (well-known configuration endpoint)
+   - JWKS-based ID token validation
+   - Multi-layer token validation (issuer, audience, lifetime, algorithm)
    - Authorization request generation
-   - Token exchange functionality
+   - Token exchange functionality with security validation
 
-3. **Session Token Service**
+3. **OIDC Discovery Service**
+   - Automatic configuration from well-known endpoint
+   - JWKS (JSON Web Key Set) retrieval and caching
+   - Token validation parameter generation
+   - Configuration caching (24-hour lifetime)
+   - Supports Keycloak and other standard OIDC providers
+
+4. **Session Token Service**
    - Opaque session token generation (256-bit secure random)
    - Encrypted cookie storage using Data Protection API
    - Session lifecycle management
@@ -31,7 +41,7 @@ A complete Backend-for-Frontend (BFF) API Gateway implementation using .NET Core
    - Session binding to IP and User-Agent
    - Automatic cleanup of expired sessions
 
-4. **Authentication Endpoints**
+5. **Authentication Endpoints**
    - `POST /oauth/login/start` - Initiates OAuth flow
    - `GET /oauth/callback` - OAuth callback handler
    - `POST /oauth/login/end` - Alternative callback for SPAs
