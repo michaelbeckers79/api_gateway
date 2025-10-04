@@ -1,6 +1,6 @@
-# Upstream Token Management and Backend Authentication
+# Upstream Token Management
 
-This document describes the new features added to the API Gateway for managing upstream tokens and backend-initiated authentication.
+This document describes the features added to the API Gateway for managing upstream tokens and OpenID Connect authentication.
 
 ## Overview
 
@@ -8,7 +8,7 @@ The API Gateway now supports:
 
 1. **Database schema with snake_case columns** - All database columns use snake_case naming (e.g., `user_id`, `created_at`)
 2. **Configurable session timeouts** - Idle and absolute timeouts can be set in appsettings.json
-3. **Backend-initiated authentication** - Backend services can initiate OAuth flows
+3. **OpenID Connect authentication** - Full OIDC support with PKCE for secure authentication flows
 4. **Route security policies** - Define how each route is secured for upstream services
 5. **Upstream token management** - Automatic token acquisition and renewal for upstream services
 6. **Distributed cache support** - Session and token data cached in memory (configurable for Redis, etc.)
@@ -76,8 +76,7 @@ CREATE TABLE UpstreamTokens (
     "Audience": "api-gateway"
   },
   "OAuth": {
-    "AuthorizationEndpoint": "https://auth.example.com/authorize",
-    "TokenEndpoint": "https://auth.example.com/token",
+    "Issuer": "https://auth.example.com",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -150,30 +149,6 @@ VALUES (
   datetime('now')
 );
 ```
-
-## Backend-Initiated Authentication
-
-### Endpoint: POST /oauth/backend/initiate
-
-Allows backend services to initiate OAuth authentication flows.
-
-**Request:**
-```json
-{
-  "clientId": "api-gateway",
-  "redirectUri": "https://your-gateway.com/oauth/callback"
-}
-```
-
-**Response:**
-```json
-{
-  "authorizationUrl": "https://auth.example.com/authorize?...",
-  "state": "random-state-value"
-}
-```
-
-The backend service can redirect users to `authorizationUrl` to complete authentication.
 
 ## Token Management
 

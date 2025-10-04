@@ -27,6 +27,7 @@ builder.Services.AddDistributedMemoryCache();
 builder.Services.AddHttpClient();
 
 // Register custom services
+builder.Services.AddSingleton<IOidcDiscoveryService, OidcDiscoveryService>();
 builder.Services.AddScoped<ISessionTokenService, SessionTokenService>();
 builder.Services.AddScoped<IOAuthAgentService, OAuthAgentService>();
 builder.Services.AddScoped<IJwtService, JwtService>();

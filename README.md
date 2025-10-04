@@ -6,13 +6,12 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 
 ### Core Functionality
 - **YARP Reverse Proxy**: Database-configurable routing for backend services
-- **OAuth Agent Pattern**: Handles OAuth 2.0 authorization flows with PKCE
+- **OAuth Agent Pattern**: Handles OpenID Connect authorization flows with PKCE
 - **Token Handler Pattern**: Secure opaque session tokens with encrypted cookies
 - **Entity Framework Core**: SQLite database with snake_case columns for route and session management
 - **OWASP Security Best Practices**: Comprehensive security headers and cookie configuration
 - **Upstream Token Management**: Automatic token acquisition and renewal for backend services
 - **Distributed Cache**: Session and token caching with memory or Redis support
-- **Backend-Initiated Auth**: Support for backend services to initiate OAuth flows
 
 ### Security Features
 
@@ -32,6 +31,10 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 #### OAuth Security
 - **PKCE (Proof Key for Code Exchange)**: Protection against authorization code interception
 - **State Parameter**: CSRF protection for OAuth flow
+- **Nonce Parameter**: OpenID Connect replay protection
+- **OIDC Discovery**: Automatic configuration from well-known endpoint
+- **JWKS Validation**: ID token signature verification using provider's public keys
+- **Multi-Layer Token Validation**: Issuer, audience, lifetime, and algorithm verification following OWASP guidelines
 - **Secure Token Storage**: Access tokens stored server-side, not in browser
 
 #### Upstream Token Management
@@ -148,25 +151,6 @@ Logout and revoke the current session.
 }
 ```
 
-#### POST `/oauth/backend/initiate` (New)
-Initiate OAuth flow from backend service.
-
-**Request:**
-```json
-{
-  "clientId": "api-gateway",
-  "redirectUri": "https://your-gateway.com/oauth/callback"
-}
-```
-
-**Response:**
-```json
-{
-  "authorizationUrl": "https://auth.example.com/authorize?...",
-  "state": "random-state-value"
-}
-```
-
 ### Health Check Endpoint
 
 #### GET `/health`
@@ -186,8 +170,7 @@ Returns the health status of the API Gateway.
     "AbsoluteTimeoutHours": 8
   },
   "OAuth": {
-    "AuthorizationEndpoint": "https://auth.example.com/authorize",
-    "TokenEndpoint": "https://auth.example.com/token",
+    "Issuer": "https://auth.example.com",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://localhost:5000/oauth/callback",
