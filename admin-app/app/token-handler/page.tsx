@@ -9,13 +9,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, ExternalLink, CheckCircle, XCircle } from 'lucide-react';
+import { Loader2, ExternalLink, CheckCircle, XCircle, Key } from 'lucide-react';
+import { apiClient } from '@/lib/api-client';
 
 function TokenHandlerContent() {
   const [redirectUri, setRedirectUri] = useState('http://localhost:3000/oauth/callback');
   const [authUrl, setAuthUrl] = useState('');
   const [loading, setLoading] = useState(false);
-  const [loginStatus, setLoginStatus] = useState<{ isLoggedIn: boolean; userId?: string } | null>(null);
+  const [loginStatus, setLoginStatus] = useState<{ isLoggedIn: boolean; userId?: string; username?: string } | null>(null);
+  
+  // Passkey state
+  const [passkeyUserId, setPasskeyUserId] = useState('');
+  const [passkeyValue, setPasskeyValue] = useState('');
+  const [passkeyStatus, setPasskeyStatus] = useState<{ userId: number; username: string; hasPasskey: boolean } | null>(null);
+  const [passkeyValidation, setPasskeyValidation] = useState<{ isValid: boolean } | null>(null);
 
   const handleStartLogin = async () => {
     setLoading(true);
@@ -68,6 +75,61 @@ function TokenHandlerContent() {
     }
   };
 
+  const handleRegisterPasskey = async () => {
+    setLoading(true);
+    try {
+      const userId = parseInt(passkeyUserId);
+      if (isNaN(userId)) {
+        alert('Invalid User ID');
+        return;
+      }
+      const result = await apiClient.registerUserPasskey(userId, passkeyValue);
+      alert(result.message);
+      setPasskeyValue('');
+    } catch (error) {
+      alert('Error: ' + (error as Error).message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCheckPasskeyStatus = async () => {
+    setLoading(true);
+    try {
+      const userId = parseInt(passkeyUserId);
+      if (isNaN(userId)) {
+        alert('Invalid User ID');
+        return;
+      }
+      const status = await apiClient.getUserPasskeyStatus(userId);
+      setPasskeyStatus(status);
+      setPasskeyValidation(null);
+    } catch (error) {
+      alert('Error: ' + (error as Error).message);
+      setPasskeyStatus(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleValidatePasskey = async () => {
+    setLoading(true);
+    try {
+      const userId = parseInt(passkeyUserId);
+      if (isNaN(userId)) {
+        alert('Invalid User ID');
+        return;
+      }
+      const result = await apiClient.validateUserPasskey(userId, passkeyValue);
+      setPasskeyValidation(result);
+    } catch (error) {
+      alert('Error: ' + (error as Error).message);
+      setPasskeyValidation(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -79,6 +141,7 @@ function TokenHandlerContent() {
         <TabsList>
           <TabsTrigger value="login">OAuth Login</TabsTrigger>
           <TabsTrigger value="status">Session Status</TabsTrigger>
+          <TabsTrigger value="passkey">Passkey Registration</TabsTrigger>
           <TabsTrigger value="docs">Documentation</TabsTrigger>
         </TabsList>
 
@@ -160,6 +223,98 @@ function TokenHandlerContent() {
                         User ID: {loginStatus.userId}
                       </p>
                     )}
+                    {loginStatus.username && (
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        Username: {loginStatus.username}
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="passkey" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Key className="h-5 w-5" />
+                Passkey Registration
+              </CardTitle>
+              <CardDescription>Register and validate passkeys for users</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-2">
+                <Label htmlFor="passkeyUserId">User ID</Label>
+                <Input
+                  id="passkeyUserId"
+                  type="number"
+                  value={passkeyUserId}
+                  onChange={(e) => setPasskeyUserId(e.target.value)}
+                  placeholder="Enter user ID"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="passkeyValue">Passkey</Label>
+                <Input
+                  id="passkeyValue"
+                  type="text"
+                  value={passkeyValue}
+                  onChange={(e) => setPasskeyValue(e.target.value)}
+                  placeholder="Enter passkey"
+                />
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={handleRegisterPasskey} disabled={loading || !passkeyUserId || !passkeyValue}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Register Passkey
+                </Button>
+                <Button variant="outline" onClick={handleCheckPasskeyStatus} disabled={loading || !passkeyUserId}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Check Status
+                </Button>
+                <Button variant="secondary" onClick={handleValidatePasskey} disabled={loading || !passkeyUserId || !passkeyValue}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Validate Passkey
+                </Button>
+              </div>
+              
+              {passkeyStatus && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        {passkeyStatus.hasPasskey ? (
+                          <CheckCircle className="h-5 w-5 text-green-600" />
+                        ) : (
+                          <XCircle className="h-5 w-5 text-amber-600" />
+                        )}
+                        <span className="font-medium">
+                          {passkeyStatus.hasPasskey ? 'Passkey Registered' : 'No Passkey'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-muted-foreground">
+                        User: {passkeyStatus.username} (ID: {passkeyStatus.userId})
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {passkeyValidation && (
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-2">
+                      {passkeyValidation.isValid ? (
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600" />
+                      )}
+                      <span className="font-medium">
+                        {passkeyValidation.isValid ? 'Valid Passkey' : 'Invalid Passkey'}
+                      </span>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -208,6 +363,14 @@ function TokenHandlerContent() {
                 <h3 className="font-semibold mb-2">6. Logout</h3>
                 <p className="text-sm text-muted-foreground">
                   POST /oauth/logout to revoke the session and clear cookies.
+                </p>
+              </div>
+              <div>
+                <h3 className="font-semibold mb-2 mt-4">Passkey Registration</h3>
+                <p className="text-sm text-muted-foreground">
+                  Register a passkey for a user using POST /admin/users/&#123;userId&#125;/passkey. 
+                  Check passkey status with GET /admin/users/&#123;userId&#125;/passkey, 
+                  and validate with POST /admin/users/&#123;userId&#125;/passkey/validate.
                 </p>
               </div>
             </CardContent>

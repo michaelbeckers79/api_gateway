@@ -207,6 +207,25 @@ class ApiClient {
     });
   }
 
+  // Passkey Management
+  async registerUserPasskey(userId: number, passkey: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/admin/users/${userId}/passkey`, {
+      method: 'POST',
+      body: JSON.stringify({ passkey }),
+    });
+  }
+
+  async getUserPasskeyStatus(userId: number): Promise<{ userId: number; username: string; hasPasskey: boolean }> {
+    return this.request<{ userId: number; username: string; hasPasskey: boolean }>(`/admin/users/${userId}/passkey`);
+  }
+
+  async validateUserPasskey(userId: number, passkey: string): Promise<{ isValid: boolean }> {
+    return this.request<{ isValid: boolean }>(`/admin/users/${userId}/passkey/validate`, {
+      method: 'POST',
+      body: JSON.stringify({ passkey }),
+    });
+  }
+
   // Clients
   async getClients(): Promise<ClientCredential[]> {
     return this.request<ClientCredential[]>('/admin/clients');

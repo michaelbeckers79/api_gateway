@@ -15,6 +15,8 @@ public interface IUserService
     Task DisableUserAsync(int userId);
     Task<List<User>> GetAllUsersAsync();
     Task UpdateLastLoginAsync(int userId);
+    Task RegisterPasskeyAsync(int userId, string passkey);
+    Task<bool> ValidatePasskeyAsync(int userId, string passkey);
 }
 
 public class UserService : IUserService
@@ -115,5 +117,31 @@ public class UserService : IUserService
             user.LastLoginAt = DateTime.UtcNow;
             await _dbContext.SaveChangesAsync();
         }
+    }
+
+    public async Task RegisterPasskeyAsync(int userId, string passkey)
+    {
+        var user = await _dbContext.Users.FindAsync(userId);
+        if (user == null)
+        {
+            throw new InvalidOperationException($"User {userId} not found");
+        }
+
+        user.Passkey = passkey;
+        user.UpdatedAt = DateTime.UtcNow;
+        await _dbContext.SaveChangesAsync();
+        
+        _logger.LogInformation("Registered passkey for user {UserId}", userId);
+    }
+
+    public async Task<bool> ValidatePasskeyAsync(int userId, string passkey)
+    {
+        var user = await _dbContext.Users.FindAsync(userId);
+        if (user == null)
+        {
+            return false;
+        }
+
+        return user.Passkey == passkey;
     }
 }

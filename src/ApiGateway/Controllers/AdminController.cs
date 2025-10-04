@@ -377,6 +377,52 @@ public class AdminController : ControllerBase
         return Ok(new { message = $"Revoked {sessions.Count} sessions" });
     }
 
+    // Passkey Management
+    [HttpPost("users/{userId}/passkey")]
+    public async Task<IActionResult> RegisterUserPasskey(int userId, [FromBody] RegisterPasskeyRequest request)
+    {
+        if (!await ValidateClientCredentialsAsync())
+            return Unauthorized(new { error = "invalid_client" });
+
+        try
+        {
+            await _userService.RegisterPasskeyAsync(userId, request.Passkey);
+            _logger.LogInformation("Registered passkey for user {UserId}", userId);
+            return Ok(new { message = "Passkey registered successfully" });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpGet("users/{userId}/passkey")]
+    public async Task<IActionResult> GetUserPasskeyStatus(int userId)
+    {
+        if (!await ValidateClientCredentialsAsync())
+            return Unauthorized(new { error = "invalid_client" });
+
+        var user = await _userService.GetUserByIdAsync(userId);
+        if (user == null)
+            return NotFound(new { error = "User not found" });
+
+        return Ok(new { 
+            userId = user.Id,
+            username = user.Username,
+            hasPasskey = !string.IsNullOrEmpty(user.Passkey)
+        });
+    }
+
+    [HttpPost("users/{userId}/passkey/validate")]
+    public async Task<IActionResult> ValidateUserPasskey(int userId, [FromBody] ValidatePasskeyRequest request)
+    {
+        if (!await ValidateClientCredentialsAsync())
+            return Unauthorized(new { error = "invalid_client" });
+
+        var isValid = await _userService.ValidatePasskeyAsync(userId, request.Passkey);
+        return Ok(new { isValid });
+    }
+
     // Client Credentials Management
     [HttpGet("clients")]
     public async Task<IActionResult> GetClients()
@@ -462,3 +508,5 @@ public class AdminController : ControllerBase
 public record RouteConfigDto(string RouteId, string ClusterId, string Match, int Order, bool IsActive);
 public record ClusterConfigDto(string ClusterId, string DestinationAddress, bool IsActive);
 public record CreateClientRequest(string ClientId, string ClientSecret, string Description);
+public record RegisterPasskeyRequest(string Passkey);
+public record ValidatePasskeyRequest(string Passkey);
