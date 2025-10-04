@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace ApiGateway.Migrations
 {
     [DbContext(typeof(ApiGatewayDbContext))]
-    [Migration("20251004155935_MigrateToSnakeCaseAndAddUpstreamSupport")]
-    partial class MigrateToSnakeCaseAndAddUpstreamSupport
+    [Migration("20251004160509_InitialCreateWithSnakeCaseColumns")]
+    partial class InitialCreateWithSnakeCaseColumns
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -56,13 +56,12 @@ namespace ApiGateway.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("last_used_at");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_client_credentials");
+                    b.HasKey("Id");
 
                     b.HasIndex("ClientId")
                         .IsUnique();
 
-                    b.ToTable("client_credentials");
+                    b.ToTable("ClientCredentials");
                 });
 
             modelBuilder.Entity("ApiGateway.Models.ClusterConfig", b =>
@@ -95,13 +94,12 @@ namespace ApiGateway.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_cluster_configs");
+                    b.HasKey("Id");
 
                     b.HasIndex("ClusterId")
                         .IsUnique();
 
-                    b.ToTable("cluster_configs");
+                    b.ToTable("ClusterConfigs");
 
                     b.HasData(
                         new
@@ -159,13 +157,12 @@ namespace ApiGateway.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_route_configs");
+                    b.HasKey("Id");
 
                     b.HasIndex("RouteId")
                         .IsUnique();
 
-                    b.ToTable("route_configs");
+                    b.ToTable("RouteConfigs");
 
                     b.HasData(
                         new
@@ -232,13 +229,12 @@ namespace ApiGateway.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("updated_at");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_route_policies");
+                    b.HasKey("Id");
 
                     b.HasIndex("RouteId")
                         .IsUnique();
 
-                    b.ToTable("route_policies");
+                    b.ToTable("RoutePolicies");
                 });
 
             modelBuilder.Entity("ApiGateway.Models.SessionToken", b =>
@@ -292,16 +288,14 @@ namespace ApiGateway.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("user_id");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_session_tokens");
+                    b.HasKey("Id");
 
                     b.HasIndex("TokenId")
                         .IsUnique();
 
-                    b.HasIndex("UserId")
-                        .HasDatabaseName("i_x_session_tokens_user_id");
+                    b.HasIndex("UserId");
 
-                    b.ToTable("session_tokens");
+                    b.ToTable("SessionTokens");
                 });
 
             modelBuilder.Entity("ApiGateway.Models.UpstreamToken", b =>
@@ -342,15 +336,13 @@ namespace ApiGateway.Migrations
                         .HasColumnType("INTEGER")
                         .HasColumnName("session_id");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_upstream_tokens");
+                    b.HasKey("Id");
 
-                    b.HasIndex("SessionId")
-                        .HasDatabaseName("i_x_upstream_tokens_session_id");
+                    b.HasIndex("SessionId");
 
                     b.HasIndex("RouteId", "SessionId");
 
-                    b.ToTable("upstream_tokens");
+                    b.ToTable("UpstreamTokens");
                 });
 
             modelBuilder.Entity("ApiGateway.Models.User", b =>
@@ -388,13 +380,12 @@ namespace ApiGateway.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("username");
 
-                    b.HasKey("Id")
-                        .HasName("p_k_users");
+                    b.HasKey("Id");
 
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("users");
+                    b.ToTable("Users");
                 });
 
             modelBuilder.Entity("ApiGateway.Models.SessionToken", b =>
@@ -403,8 +394,7 @@ namespace ApiGateway.Migrations
                         .WithMany("Sessions")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("f_k_session_tokens__users_user_id");
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -414,8 +404,7 @@ namespace ApiGateway.Migrations
                     b.HasOne("ApiGateway.Models.SessionToken", "Session")
                         .WithMany()
                         .HasForeignKey("SessionId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .HasConstraintName("f_k_upstream_tokens_session_tokens_session_id");
+                        .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Session");
                 });

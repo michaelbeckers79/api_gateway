@@ -23,34 +23,13 @@ public class ApiGatewayDbContext : DbContext
     {
         base.OnModelCreating(modelBuilder);
 
-        // Configure snake_case naming convention
+        // Configure snake_case naming convention for columns only (not tables due to SQLite limitations)
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
         {
-            // Convert table names to snake_case
-            entity.SetTableName(ToSnakeCase(entity.GetTableName() ?? entity.DisplayName()));
-
             // Convert column names to snake_case
             foreach (var property in entity.GetProperties())
             {
                 property.SetColumnName(ToSnakeCase(property.Name));
-            }
-
-            // Convert foreign key constraint names to snake_case
-            foreach (var key in entity.GetKeys())
-            {
-                key.SetName(ToSnakeCase(key.GetName() ?? $"PK_{entity.GetTableName()}"));
-            }
-
-            foreach (var foreignKey in entity.GetForeignKeys())
-            {
-                foreignKey.SetConstraintName(ToSnakeCase(foreignKey.GetConstraintName() ?? 
-                    $"FK_{entity.GetTableName()}_{foreignKey.PrincipalEntityType.GetTableName()}"));
-            }
-
-            foreach (var index in entity.GetIndexes())
-            {
-                index.SetDatabaseName(ToSnakeCase(index.GetDatabaseName() ?? 
-                    $"IX_{entity.GetTableName()}_{string.Join("_", index.Properties.Select(p => p.Name))}"));
             }
         }
 

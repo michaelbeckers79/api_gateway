@@ -229,8 +229,9 @@ Routes can be configured with different security policies for upstream services:
 **Database Configuration**:
 
 ```sql
+-- Note: Table names are in PascalCase, but column names use snake_case
 -- Add a route policy
-INSERT INTO route_policies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
 VALUES (
   'api-route',
   'client_credentials',
@@ -244,7 +245,7 @@ VALUES (
 );
 
 -- For token exchange
-INSERT INTO route_policies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
 VALUES (
   'secure-api-route',
   'token_exchange',
@@ -258,7 +259,7 @@ VALUES (
 );
 
 -- For self-signed tokens (no external OAuth needed)
-INSERT INTO route_policies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
 VALUES (
   'internal-api-route',
   'self_signed',
