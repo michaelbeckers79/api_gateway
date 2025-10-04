@@ -171,8 +171,6 @@ Returns the health status of the API Gateway.
   },
   "OAuth": {
     "Issuer": "https://auth.example.com",
-    "AuthorizationEndpoint": "https://auth.example.com/authorize",
-    "TokenEndpoint": "https://auth.example.com/token",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://localhost:5000/oauth/callback",

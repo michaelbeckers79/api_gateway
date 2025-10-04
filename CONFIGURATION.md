@@ -23,8 +23,7 @@ The gateway is configured via `appsettings.json` and `appsettings.{Environment}.
     "DefaultConnection": "Data Source=apigateway.db"
   },
   "OAuth": {
-    "AuthorizationEndpoint": "https://your-auth-server.com/authorize",
-    "TokenEndpoint": "https://your-auth-server.com/token",
+    "Issuer": "https://your-auth-server.com",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -35,7 +34,7 @@ The gateway is configured via `appsettings.json` and `appsettings.{Environment}.
 
 ## OAuth Provider Setup
 
-The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples for popular providers.
+The gateway supports any OpenID Connect provider through automatic discovery. You only need to configure the issuer URL - all endpoints (authorization, token, JWKS, etc.) are automatically discovered from the provider's well-known configuration endpoint.
 
 ### Microsoft Azure AD / Entra ID
 
@@ -47,8 +46,7 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 ```json
 {
   "OAuth": {
-    "AuthorizationEndpoint": "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/authorize",
-    "TokenEndpoint": "https://login.microsoftonline.com/{tenant-id}/oauth2/v2.0/token",
+    "Issuer": "https://login.microsoftonline.com/{tenant-id}/v2.0",
     "ClientId": "{application-id}",
     "ClientSecret": "{client-secret}",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -66,8 +64,7 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 ```json
 {
   "OAuth": {
-    "AuthorizationEndpoint": "https://{your-domain}.auth0.com/authorize",
-    "TokenEndpoint": "https://{your-domain}.auth0.com/oauth/token",
+    "Issuer": "https://{your-domain}.auth0.com",
     "ClientId": "{client-id}",
     "ClientSecret": "{client-secret}",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -85,8 +82,7 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 ```json
 {
   "OAuth": {
-    "AuthorizationEndpoint": "https://{your-domain}.okta.com/oauth2/default/v1/authorize",
-    "TokenEndpoint": "https://{your-domain}.okta.com/oauth2/default/v1/token",
+    "Issuer": "https://{your-domain}.okta.com/oauth2/default",
     "ClientId": "{client-id}",
     "ClientSecret": "{client-secret}",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -104,8 +100,7 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 ```json
 {
   "OAuth": {
-    "AuthorizationEndpoint": "https://accounts.google.com/o/oauth2/v2/auth",
-    "TokenEndpoint": "https://oauth2.googleapis.com/token",
+    "Issuer": "https://accounts.google.com",
     "ClientId": "{client-id}.apps.googleusercontent.com",
     "ClientSecret": "{client-secret}",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -123,8 +118,7 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 ```json
 {
   "OAuth": {
-    "AuthorizationEndpoint": "https://{keycloak-host}/realms/{realm}/protocol/openid-connect/auth",
-    "TokenEndpoint": "https://{keycloak-host}/realms/{realm}/protocol/openid-connect/token",
+    "Issuer": "https://{keycloak-host}/realms/{realm}",
     "ClientId": "{client-id}",
     "ClientSecret": "{client-secret}",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -174,8 +168,6 @@ Update `appsettings.json`:
 {
   "OAuth": {
     "Issuer": "https://keycloak.example.com/realms/myrealm",
-    "AuthorizationEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth",
-    "TokenEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/token",
     "ClientId": "api-gateway",
     "ClientSecret": "your-client-secret-from-keycloak",
     "RedirectUri": "https://your-gateway.com/oauth/callback",
@@ -196,7 +188,12 @@ Update `appsettings.json`:
 
 **Important Configuration Notes:**
 
-- **OAuth:Issuer**: The OIDC issuer URL. The gateway uses this to discover the well-known OIDC configuration endpoint at `{Issuer}/.well-known/openid-configuration`. For Keycloak, this is typically `https://keycloak.example.com/realms/{realm-name}`.
+- **OAuth:Issuer**: The OIDC issuer URL. This is the **only required endpoint** configuration. The gateway automatically discovers all other endpoints (authorization, token, JWKS, etc.) from the well-known OIDC configuration at `{Issuer}/.well-known/openid-configuration`. For Keycloak, this is typically `https://keycloak.example.com/realms/{realm-name}`.
+- **Automatic Endpoint Discovery**: The gateway automatically fetches:
+  - Authorization endpoint for initiating login flows
+  - Token endpoint for exchanging authorization codes
+  - JWKS endpoint for validating token signatures
+  - Other OIDC metadata as needed
 - **Well-Known Discovery**: The gateway automatically fetches JWKS (JSON Web Key Set) and other OIDC metadata from the well-known endpoint for secure token validation.
 - **Token Validation**: ID tokens are validated according to OWASP guidelines, including:
   - Signature verification using JWKS
@@ -211,17 +208,19 @@ Update `appsettings.json`:
 The API Gateway implements comprehensive OIDC token validation following OWASP security guidelines:
 
 1. **Automatic OIDC Discovery**: Fetches configuration from `{Issuer}/.well-known/openid-configuration`
-2. **JWKS-based Signature Validation**: Validates ID token signatures using public keys from the JWKS endpoint
-3. **Issuer Validation**: Ensures tokens are issued by the configured identity provider
-4. **Audience Validation**: Verifies tokens are intended for this gateway (client ID)
-5. **Lifetime Validation**: Checks token expiration with configurable clock skew (5 minutes)
-6. **Nonce Validation**: Validates nonce claim in ID token to prevent replay attacks
-7. **Algorithm Verification**: Ensures only secure algorithms (RS256, RS384, RS512) are accepted
+2. **Dynamic Endpoint Resolution**: All OAuth/OIDC endpoints (authorization, token, JWKS) are automatically discovered from the well-known endpoint
+3. **JWKS-based Signature Validation**: Validates ID token signatures using public keys from the JWKS endpoint
+4. **Issuer Validation**: Ensures tokens are issued by the configured identity provider
+5. **Audience Validation**: Verifies tokens are intended for this gateway (client ID)
+6. **Lifetime Validation**: Checks token expiration with configurable clock skew (5 minutes)
+7. **Nonce Validation**: Validates nonce claim in ID token to prevent replay attacks
+8. **Algorithm Verification**: Ensures only secure algorithms (RS256, RS384, RS512) are accepted
 
 **Security Features:**
-- Tokens are cached for 24 hours with automatic refresh
+- Configuration cached for 24 hours with automatic refresh
 - All validation follows OWASP Authentication Cheat Sheet guidelines
 - Invalid tokens are rejected with detailed logging for security monitoring
+- Reduced configuration surface area (only issuer URL needed)
 
 #### 5. Configuring Route Security Policies
 
@@ -532,8 +531,7 @@ Configure allowed origins for your frontend applications:
     "DefaultConnection": "${DATABASE_CONNECTION_STRING}"
   },
   "OAuth": {
-    "AuthorizationEndpoint": "${OAUTH_AUTH_ENDPOINT}",
-    "TokenEndpoint": "${OAUTH_TOKEN_ENDPOINT}",
+    "Issuer": "${OAUTH_ISSUER}",
     "ClientId": "${OAUTH_CLIENT_ID}",
     "ClientSecret": "${OAUTH_CLIENT_SECRET}",
     "RedirectUri": "https://gateway.example.com/oauth/callback",
@@ -554,6 +552,7 @@ Set sensitive configuration via environment variables:
 **Linux/macOS:**
 ```bash
 export DATABASE_CONNECTION_STRING="Host=prod-db;Database=apigateway;..."
+export OAUTH_ISSUER="https://auth.example.com"
 export OAUTH_CLIENT_SECRET="your-secret"
 export ASPNETCORE_ENVIRONMENT="Production"
 ```
@@ -561,6 +560,7 @@ export ASPNETCORE_ENVIRONMENT="Production"
 **Windows:**
 ```powershell
 $env:DATABASE_CONNECTION_STRING="Host=prod-db;Database=apigateway;..."
+$env:OAUTH_ISSUER="https://auth.example.com"
 $env:OAUTH_CLIENT_SECRET="your-secret"
 $env:ASPNETCORE_ENVIRONMENT="Production"
 ```
@@ -568,6 +568,7 @@ $env:ASPNETCORE_ENVIRONMENT="Production"
 **Docker:**
 ```dockerfile
 ENV DATABASE_CONNECTION_STRING="Host=prod-db;Database=apigateway;..."
+ENV OAUTH_ISSUER="https://auth.example.com"
 ENV OAUTH_CLIENT_SECRET="your-secret"
 ENV ASPNETCORE_ENVIRONMENT="Production"
 ```
@@ -582,8 +583,7 @@ metadata:
   name: apigateway-config
 data:
   ASPNETCORE_ENVIRONMENT: "Production"
-  OAuth__AuthorizationEndpoint: "https://auth.example.com/authorize"
-  OAuth__TokenEndpoint: "https://auth.example.com/token"
+  OAuth__Issuer: "https://auth.example.com"
   OAuth__RedirectUri: "https://gateway.example.com/oauth/callback"
 ```
 

@@ -7,7 +7,7 @@ namespace ApiGateway.Services;
 
 public interface IOAuthAgentService
 {
-    AuthorizationRequest GenerateAuthorizationRequest(string redirectUri);
+    Task<AuthorizationRequest> GenerateAuthorizationRequestAsync(string redirectUri);
     Task<TokenExchangeResult> ExchangeCodeForTokensAsync(string code, string codeVerifier, string? expectedNonce = null);
 }
 
@@ -51,7 +51,7 @@ public class OAuthAgentService : IOAuthAgentService
         _jwtHandler = new JwtSecurityTokenHandler();
     }
 
-    public AuthorizationRequest GenerateAuthorizationRequest(string redirectUri)
+    public async Task<AuthorizationRequest> GenerateAuthorizationRequestAsync(string redirectUri)
     {
         // Generate PKCE parameters
         var codeVerifier = GenerateCodeVerifier();
@@ -59,9 +59,11 @@ public class OAuthAgentService : IOAuthAgentService
         var state = GenerateState();
         var nonce = GenerateNonce(); // Add nonce for OpenID Connect
 
-        var authEndpoint = _configuration["OAuth:AuthorizationEndpoint"] 
-            ?? "https://auth.example.com/authorize";
-        var clientId = _configuration["OAuth:ClientId"] ?? "your-client-id";
+        // Get OIDC configuration from discovery endpoint
+        var oidcConfig = await _oidcDiscovery.GetConfigurationAsync();
+        var authEndpoint = oidcConfig.AuthorizationEndpoint;
+        
+        var clientId = _configuration["OAuth:ClientId"] ?? throw new InvalidOperationException("OAuth:ClientId not configured");
         var scope = _configuration["OAuth:Scope"] ?? "openid profile email";
 
         var queryParams = new Dictionary<string, string>
@@ -97,12 +99,14 @@ public class OAuthAgentService : IOAuthAgentService
     {
         try
         {
-            var tokenEndpoint = _configuration["OAuth:TokenEndpoint"] 
-                ?? "https://auth.example.com/token";
-            var clientId = _configuration["OAuth:ClientId"] ?? "your-client-id";
+            // Get OIDC configuration from discovery endpoint
+            var oidcConfig = await _oidcDiscovery.GetConfigurationAsync();
+            var tokenEndpoint = oidcConfig.TokenEndpoint;
+            
+            var clientId = _configuration["OAuth:ClientId"] ?? throw new InvalidOperationException("OAuth:ClientId not configured");
             var clientSecret = _configuration["OAuth:ClientSecret"] ?? "";
             var redirectUri = _configuration["OAuth:RedirectUri"] 
-                ?? "https://localhost:5000/oauth/callback";
+                ?? throw new InvalidOperationException("OAuth:RedirectUri not configured");
 
             var httpClient = _httpClientFactory.CreateClient();
 

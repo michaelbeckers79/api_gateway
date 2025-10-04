@@ -76,8 +76,7 @@ CREATE TABLE UpstreamTokens (
     "Audience": "api-gateway"
   },
   "OAuth": {
-    "AuthorizationEndpoint": "https://auth.example.com/authorize",
-    "TokenEndpoint": "https://auth.example.com/token",
+    "Issuer": "https://auth.example.com",
     "ClientId": "your-client-id",
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://your-gateway.com/oauth/callback",

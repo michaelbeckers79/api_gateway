@@ -42,13 +42,13 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login/start")]
-    public IActionResult LoginStart([FromBody] LoginStartRequest request)
+    public async Task<IActionResult> LoginStart([FromBody] LoginStartRequest request)
     {
         try
         {
             var redirectUri = request.RedirectUri ?? $"{Request.Scheme}://{Request.Host}/oauth/callback";
             
-            var authRequest = _oauthAgent.GenerateAuthorizationRequest(redirectUri);
+            var authRequest = await _oauthAgent.GenerateAuthorizationRequestAsync(redirectUri);
 
             // Store state and code verifier in secure, encrypted cookies
             // Following OWASP best practices:

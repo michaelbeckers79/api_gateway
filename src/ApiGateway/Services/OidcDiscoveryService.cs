@@ -114,32 +114,15 @@ public class OidcDiscoveryService : IOidcDiscoveryService
 
     private string GetIssuerFromConfiguration()
     {
-        // Try to get issuer from configuration
+        // Get issuer from configuration (required)
         var issuer = _configuration["OAuth:Issuer"];
-        if (!string.IsNullOrEmpty(issuer))
+        if (string.IsNullOrEmpty(issuer))
         {
-            return issuer;
+            throw new InvalidOperationException(
+                "OAuth:Issuer is required for OIDC Discovery. " +
+                "Please configure the issuer URL in appsettings.json (e.g., 'https://keycloak.example.com/realms/myrealm')");
         }
 
-        // Try to derive from authorization endpoint
-        var authEndpoint = _configuration["OAuth:AuthorizationEndpoint"];
-        if (!string.IsNullOrEmpty(authEndpoint))
-        {
-            var uri = new Uri(authEndpoint);
-            // Remove the authorization path (e.g., /authorize, /protocol/openid-connect/auth)
-            var pathSegments = uri.AbsolutePath.Split('/', StringSplitOptions.RemoveEmptyEntries);
-            
-            // For Keycloak: https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth
-            // Issuer should be: https://keycloak.example.com/realms/myrealm
-            if (pathSegments.Length >= 2 && pathSegments[0] == "realms")
-            {
-                return $"{uri.Scheme}://{uri.Authority}/realms/{pathSegments[1]}";
-            }
-            
-            // For other OIDC providers, try to use the base URL
-            return $"{uri.Scheme}://{uri.Authority}";
-        }
-
-        throw new InvalidOperationException("Cannot determine OIDC issuer. Please configure OAuth:Issuer or OAuth:AuthorizationEndpoint");
+        return issuer;
     }
 }
