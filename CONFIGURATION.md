@@ -133,6 +133,163 @@ The gateway supports any OAuth 2.0 / OpenID Connect provider. Below are examples
 }
 ```
 
+## Backend-Initiated Authentication
+
+The API Gateway supports backend-initiated authentication, allowing backend services to trigger the OAuth flow on behalf of a user. This is useful for scenarios where the backend needs to authenticate a user without frontend involvement.
+
+### Keycloak Configuration for Backend-Initiated Auth
+
+#### 1. Create a Confidential Client in Keycloak
+
+1. Log into Keycloak Admin Console
+2. Navigate to **Clients** → **Create**
+3. Configure the client:
+   - **Client ID**: `api-gateway`
+   - **Client Protocol**: `openid-connect`
+   - **Access Type**: `confidential`
+   - **Standard Flow Enabled**: `ON`
+   - **Direct Access Grants Enabled**: `ON` (for backend token exchange)
+   - **Service Accounts Enabled**: `ON` (for client credentials)
+   - **Valid Redirect URIs**: 
+     - `https://your-gateway.com/oauth/callback`
+     - `http://localhost:5261/oauth/callback` (for development)
+   - **Web Origins**: `https://your-gateway.com`
+
+4. Save the client and note the **Client Secret** from the **Credentials** tab
+
+#### 2. Configure Token Exchange (Optional)
+
+To support token exchange for upstream services:
+
+1. In Keycloak, go to **Realm Settings** → **Tokens**
+2. Enable **Token Exchange**
+3. Create a separate client for each upstream service that needs token exchange
+4. Configure the token exchange policies in the **Service Account Roles** tab
+
+#### 3. API Gateway Configuration
+
+Update `appsettings.json`:
+
+```json
+{
+  "OAuth": {
+    "AuthorizationEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth",
+    "TokenEndpoint": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/token",
+    "ClientId": "api-gateway",
+    "ClientSecret": "your-client-secret-from-keycloak",
+    "RedirectUri": "https://your-gateway.com/oauth/callback",
+    "Scope": "openid profile email"
+  },
+  "Session": {
+    "IdleTimeoutMinutes": 30,
+    "AbsoluteTimeoutHours": 8
+  },
+  "Jwt": {
+    "UsernameClaim": "preferred_username",
+    "Secret": "change-this-to-a-secure-secret-key-at-least-32-characters-long",
+    "Issuer": "api-gateway",
+    "Audience": "api-gateway"
+  }
+}
+```
+
+#### 4. Using Backend-Initiated Authentication
+
+**Endpoint**: `POST /oauth/backend/initiate`
+
+**Request**:
+```json
+{
+  "clientId": "api-gateway",
+  "redirectUri": "https://your-gateway.com/oauth/callback"
+}
+```
+
+**Response**:
+```json
+{
+  "authorizationUrl": "https://keycloak.example.com/realms/myrealm/protocol/openid-connect/auth?...",
+  "state": "random-state-value"
+}
+```
+
+The backend service can then redirect the user's browser to the `authorizationUrl` to complete authentication.
+
+#### 5. Configuring Route Security Policies
+
+Routes can be configured with different security policies for upstream services:
+
+**Security Types**:
+- `none`: No authentication required
+- `session`: Use the user's session token
+- `client_credentials`: Use OAuth client credentials flow
+- `token_exchange`: Exchange the user's token for an upstream token
+- `self_signed`: Generate a self-signed JWT based on the session
+
+**Database Configuration**:
+
+```sql
+-- Note: Table names are in PascalCase, but column names use snake_case
+-- Add a route policy
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+VALUES (
+  'api-route',
+  'client_credentials',
+  'https://keycloak.example.com/realms/myrealm/protocol/openid-connect/token',
+  'backend-service',
+  'backend-service-secret',
+  'api.read api.write',
+  3600,
+  datetime('now'),
+  datetime('now')
+);
+
+-- For token exchange
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+VALUES (
+  'secure-api-route',
+  'token_exchange',
+  'https://keycloak.example.com/realms/myrealm/protocol/openid-connect/token',
+  'api-gateway',
+  'your-client-secret',
+  'downstream-service',
+  3600,
+  datetime('now'),
+  datetime('now')
+);
+
+-- For self-signed tokens (no external OAuth needed)
+INSERT INTO RoutePolicies (route_id, security_type, token_endpoint, client_id, client_secret, scope, token_expiration_seconds, created_at, updated_at)
+VALUES (
+  'internal-api-route',
+  'self_signed',
+  NULL,
+  NULL,
+  NULL,
+  NULL,
+  3600,
+  datetime('now'),
+  datetime('now')
+);
+```
+
+**Token Management**:
+- Upstream tokens are automatically cached in distributed cache (default: in-memory)
+- Tokens are automatically refreshed when they are about to expire (5 minutes before expiration)
+- Session information is stored in the database for persistence
+- Tokens can be manually refreshed using the `IUpstreamTokenService`
+
+**Example Backend Usage**:
+
+```csharp
+// In your backend service
+var upstreamToken = await _upstreamTokenService.GetOrCreateUpstreamTokenAsync("api-route", sessionId);
+
+// Use the token to call the upstream service
+httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", upstreamToken);
+var response = await httpClient.GetAsync("https://upstream-service.com/api/resource");
+```
+
 ## Route Configuration
 
 Routes are stored in the database and can be managed dynamically.

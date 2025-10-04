@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Text;
 using Microsoft.IdentityModel.Tokens;
 
 namespace ApiGateway.Services;
@@ -8,6 +9,7 @@ public interface IJwtService
 {
     string? ExtractUsername(string token, string claimName);
     ClaimsPrincipal? ValidateToken(string token);
+    string GenerateToken(Dictionary<string, string> claims, int expirationSeconds = 3600);
 }
 
 public class JwtService : IJwtService
@@ -93,6 +95,41 @@ public class JwtService : IJwtService
         {
             _logger.LogError(ex, "Error validating token");
             return null;
+        }
+    }
+
+    public string GenerateToken(Dictionary<string, string> claims, int expirationSeconds = 3600)
+    {
+        try
+        {
+            // Get signing key from configuration or generate a default one
+            var jwtSecret = _configuration["Jwt:Secret"] ?? "default-secret-key-change-in-production-minimum-32-characters";
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var issuer = _configuration["Jwt:Issuer"] ?? "api-gateway";
+            var audience = _configuration["Jwt:Audience"] ?? "api-gateway";
+
+            var claimsList = claims.Select(kvp => new Claim(kvp.Key, kvp.Value)).ToList();
+            claimsList.Add(new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()));
+            claimsList.Add(new Claim(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString()));
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claimsList),
+                Expires = DateTime.UtcNow.AddSeconds(expirationSeconds),
+                Issuer = issuer,
+                Audience = audience,
+                SigningCredentials = credentials
+            };
+
+            var token = _tokenHandler.CreateToken(tokenDescriptor);
+            return _tokenHandler.WriteToken(token);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error generating JWT token");
+            throw;
         }
     }
 }

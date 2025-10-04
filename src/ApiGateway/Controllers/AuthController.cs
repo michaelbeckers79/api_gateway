@@ -262,6 +262,54 @@ public class AuthController : ControllerBase
         }
     }
 
+    [HttpPost("backend/initiate")]
+    public IActionResult BackendInitiateAuth([FromBody] BackendAuthRequest request)
+    {
+        try
+        {
+            // Validate request
+            if (string.IsNullOrEmpty(request.ClientId))
+            {
+                return BadRequest(new { error = "invalid_request", message = "ClientId is required" });
+            }
+
+            // Use provided redirect URI or default
+            var redirectUri = request.RedirectUri ?? $"{Request.Scheme}://{Request.Host}/oauth/callback";
+            
+            var authRequest = _oauthAgent.GenerateAuthorizationRequest(redirectUri);
+
+            // Store state and code verifier in secure, encrypted cookies
+            var cookieOptions = new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                MaxAge = TimeSpan.FromMinutes(10),
+                Path = "/",
+                IsEssential = true
+            };
+
+            var encryptedState = _protector.Protect(authRequest.State);
+            var encryptedCodeVerifier = _protector.Protect(authRequest.CodeVerifier);
+
+            Response.Cookies.Append(StateCookieName, encryptedState, cookieOptions);
+            Response.Cookies.Append(CodeVerifierCookieName, encryptedCodeVerifier, cookieOptions);
+
+            _logger.LogInformation("Backend initiated auth for client {ClientId}", request.ClientId);
+
+            return Ok(new BackendAuthResponse
+            {
+                AuthorizationUrl = authRequest.AuthorizationUrl,
+                State = authRequest.State
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error initiating backend auth");
+            return StatusCode(500, new { error = "internal_error", message = "Failed to initiate authentication" });
+        }
+    }
+
     private async Task<string> ExtractUserIdFromTokenAsync(string token)
     {
         try
@@ -353,4 +401,16 @@ public record LogoutResponse
 {
     public bool Success { get; set; }
     public string Message { get; set; } = string.Empty;
+}
+
+public record BackendAuthRequest
+{
+    public string ClientId { get; set; } = string.Empty;
+    public string? RedirectUri { get; set; }
+}
+
+public record BackendAuthResponse
+{
+    public string AuthorizationUrl { get; set; } = string.Empty;
+    public string State { get; set; } = string.Empty;
 }
