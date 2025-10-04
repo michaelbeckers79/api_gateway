@@ -8,6 +8,7 @@ public class RouteConfig
     public string Match { get; set; } = string.Empty;
     public int Order { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? SecurityPolicy { get; set; } // References RoutePolicy.SecurityType
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

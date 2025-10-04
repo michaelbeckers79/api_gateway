@@ -20,6 +20,9 @@ builder.Services.AddDbContext<ApiGatewayDbContext>(options =>
 // Add Data Protection for encrypted cookies (OWASP best practice)
 builder.Services.AddDataProtection();
 
+// Add distributed cache (default to memory cache)
+builder.Services.AddDistributedMemoryCache();
+
 // Add HTTP client factory
 builder.Services.AddHttpClient();
 
@@ -29,6 +32,7 @@ builder.Services.AddScoped<IOAuthAgentService, OAuthAgentService>();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IClientCredentialService, ClientCredentialService>();
+builder.Services.AddScoped<IUpstreamTokenService, UpstreamTokenService>();
 builder.Services.AddSingleton<DatabaseProxyConfigProvider>();
 builder.Services.AddSingleton<IProxyConfigProvider>(sp => 
     sp.GetRequiredService<DatabaseProxyConfigProvider>());

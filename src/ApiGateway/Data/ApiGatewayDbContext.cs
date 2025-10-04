@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ApiGateway.Models;
+using System.Text;
 
 namespace ApiGateway.Data;
 
@@ -15,10 +16,43 @@ public class ApiGatewayDbContext : DbContext
     public DbSet<SessionToken> SessionTokens { get; set; }
     public DbSet<User> Users { get; set; }
     public DbSet<ClientCredential> ClientCredentials { get; set; }
+    public DbSet<RoutePolicy> RoutePolicies { get; set; }
+    public DbSet<UpstreamToken> UpstreamTokens { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+
+        // Configure snake_case naming convention
+        foreach (var entity in modelBuilder.Model.GetEntityTypes())
+        {
+            // Convert table names to snake_case
+            entity.SetTableName(ToSnakeCase(entity.GetTableName() ?? entity.DisplayName()));
+
+            // Convert column names to snake_case
+            foreach (var property in entity.GetProperties())
+            {
+                property.SetColumnName(ToSnakeCase(property.Name));
+            }
+
+            // Convert foreign key constraint names to snake_case
+            foreach (var key in entity.GetKeys())
+            {
+                key.SetName(ToSnakeCase(key.GetName() ?? $"PK_{entity.GetTableName()}"));
+            }
+
+            foreach (var foreignKey in entity.GetForeignKeys())
+            {
+                foreignKey.SetConstraintName(ToSnakeCase(foreignKey.GetConstraintName() ?? 
+                    $"FK_{entity.GetTableName()}_{foreignKey.PrincipalEntityType.GetTableName()}"));
+            }
+
+            foreach (var index in entity.GetIndexes())
+            {
+                index.SetDatabaseName(ToSnakeCase(index.GetDatabaseName() ?? 
+                    $"IX_{entity.GetTableName()}_{string.Join("_", index.Properties.Select(p => p.Name))}"));
+            }
+        }
 
         modelBuilder.Entity<RouteConfig>(entity =>
         {
@@ -69,6 +103,32 @@ public class ApiGatewayDbContext : DbContext
             entity.Property(e => e.Description).HasMaxLength(500);
         });
 
+        modelBuilder.Entity<RoutePolicy>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => e.RouteId).IsUnique();
+            entity.Property(e => e.RouteId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.SecurityType).IsRequired().HasMaxLength(50);
+            entity.Property(e => e.TokenEndpoint).HasMaxLength(500);
+            entity.Property(e => e.ClientId).HasMaxLength(200);
+            entity.Property(e => e.ClientSecret).HasMaxLength(500);
+            entity.Property(e => e.Scope).HasMaxLength(500);
+        });
+
+        modelBuilder.Entity<UpstreamToken>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.HasIndex(e => new { e.RouteId, e.SessionId });
+            entity.Property(e => e.RouteId).IsRequired().HasMaxLength(200);
+            entity.Property(e => e.AccessToken).IsRequired();
+            
+            // Configure relationship
+            entity.HasOne(e => e.Session)
+                .WithMany()
+                .HasForeignKey(e => e.SessionId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
         // Seed some default routes
         var seedDate = new DateTime(2024, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         
@@ -97,5 +157,29 @@ public class ApiGatewayDbContext : DbContext
                 UpdatedAt = seedDate
             }
         );
+    }
+
+    private static string ToSnakeCase(string input)
+    {
+        if (string.IsNullOrEmpty(input))
+            return input;
+
+        var result = new StringBuilder();
+        result.Append(char.ToLowerInvariant(input[0]));
+
+        for (int i = 1; i < input.Length; i++)
+        {
+            if (char.IsUpper(input[i]))
+            {
+                result.Append('_');
+                result.Append(char.ToLowerInvariant(input[i]));
+            }
+            else
+            {
+                result.Append(input[i]);
+            }
+        }
+
+        return result.ToString();
     }
 }
