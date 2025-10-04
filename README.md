@@ -22,8 +22,8 @@ A Backend-for-Frontend (BFF) API Gateway built with .NET Core 9, YARP (Yet Anoth
 
 #### Session Management
 - **Opaque Tokens**: Session tokens don't expose user information
-- **Absolute Timeout**: 8-hour maximum session lifetime
-- **Idle Timeout**: 30-minute inactivity timeout
+- **Absolute Timeout**: 8-hour maximum session lifetime (configurable via `Session:AbsoluteTimeoutHours`)
+- **Idle Timeout**: 30-minute inactivity timeout (configurable via `Session:IdleTimeoutMinutes`)
 - **Session Binding**: Tracks IP address and User-Agent
 - **Automatic Cleanup**: Background service removes expired sessions
 
@@ -161,6 +161,10 @@ Returns the health status of the API Gateway.
     "ClientSecret": "your-client-secret",
     "RedirectUri": "https://localhost:5000/oauth/callback",
     "Scope": "openid profile email"
+  },
+  "Session": {
+    "IdleTimeoutMinutes": 30,
+    "AbsoluteTimeoutHours": 8
   },
   "Cors": {
     "AllowedOrigins": [

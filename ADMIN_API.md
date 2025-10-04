@@ -95,6 +95,69 @@ POST /admin/users/{id}/disable
 }
 ```
 
+## Passkey Management
+
+### Register User Passkey
+
+Register a passkey for a user. The passkey is stored as plain text in the database for demonstration purposes. In production, this should be hashed.
+
+```http
+POST /admin/users/{userId}/passkey
+```
+
+**Request:**
+```json
+{
+  "passkey": "my-secure-passkey-12345"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Passkey registered successfully"
+}
+```
+
+### Get Passkey Status
+
+Check if a user has a registered passkey.
+
+```http
+GET /admin/users/{userId}/passkey
+```
+
+**Response:**
+```json
+{
+  "userId": 1,
+  "username": "john.doe",
+  "hasPasskey": true
+}
+```
+
+### Validate Passkey
+
+Validate a passkey for a user.
+
+```http
+POST /admin/users/{userId}/passkey/validate
+```
+
+**Request:**
+```json
+{
+  "passkey": "my-secure-passkey-12345"
+}
+```
+
+**Response:**
+```json
+{
+  "isValid": true
+}
+```
+
 ## Session Management
 
 ### Get User Sessions
